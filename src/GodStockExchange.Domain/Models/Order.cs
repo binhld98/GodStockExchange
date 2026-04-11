@@ -1,7 +1,7 @@
 using GodStockExchange.Domain.Common;
 using GodStockExchange.Domain.Enums;
 
-namespace GodStockExchange.Domain.Entities;
+namespace GodStockExchange.Domain.Models;
 
 /// <summary>
 /// Represents an immutable value-type of a single order.
