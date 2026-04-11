@@ -117,7 +117,7 @@ public struct Order
         OrigQty = origQty;
         LeavesQty = origQty;
         Status = OrderStatus.New;
-        ReceivedAtNs = DateTime.UtcNow.Nanosecond;
+        ReceivedAtNs = DateHelper.GetCurrentTimestampNs();
     }
 
     /// <summary>
