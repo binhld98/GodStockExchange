@@ -79,6 +79,14 @@ public struct Order
         long receivedAtNs
     )
     {
+        Guard.NonNegative(orderId, nameof(orderId));
+        Guard.NonNegative(clientOrderId, nameof(clientOrderId));
+        Guard.NonNegative(instrumentId, nameof(instrumentId));
+        Guard.NonNegative(priceTicks, nameof(priceTicks));
+        Guard.NonNegative(origQty, nameof(origQty));
+        Guard.NonNegative(leavesQty, nameof(leavesQty));
+        Guard.NonNegative(receivedAtNs, nameof(receivedAtNs));
+
         OrderId = orderId;
         ClientOrderId = clientOrderId;
         InstrumentId = instrumentId;
@@ -93,6 +101,18 @@ public struct Order
         ReceivedAtNs = receivedAtNs;
     }
 
+    /// <summary>
+    /// <see cref="LeavesQty"/> = <see cref="OrigQty"/>, <see cref="Status"/> = <see cref="OrderStatus.New"/>, <see cref="ReceivedAtNs"/> = current timestamp.
+    /// </summary>
+    /// <param name="orderId"></param>
+    /// <param name="clientOrderId"></param>
+    /// <param name="instrumentId"></param>
+    /// <param name="side"></param>
+    /// <param name="type"></param>
+    /// <param name="timeInForce"></param>
+    /// <param name="auctionConstraint"></param>
+    /// <param name="priceTicks"></param>
+    /// <param name="origQty"></param>
     public Order
     (
         long orderId,
@@ -106,6 +126,12 @@ public struct Order
         long origQty
     )
     {
+        Guard.NonNegative(orderId, nameof(orderId));
+        Guard.NonNegative(clientOrderId, nameof(clientOrderId));
+        Guard.NonNegative(instrumentId, nameof(instrumentId));
+        Guard.NonNegative(priceTicks, nameof(priceTicks));
+        Guard.NonNegative(origQty, nameof(origQty));
+
         OrderId = orderId;
         ClientOrderId = clientOrderId;
         InstrumentId = instrumentId;
