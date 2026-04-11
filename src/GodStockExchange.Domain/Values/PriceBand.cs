@@ -39,5 +39,6 @@ public readonly record struct PriceBand
     public bool Contains(long priceTicks)
         => priceTicks >= FloorTicks && priceTicks <= CeilingTicks;
 
-    public override string ToString() => $"{nameof(PriceBand)} [{FloorTicks}, {CeilingTicks}]";
+    public override string ToString()
+        => $"PriceBand [FloorTicks={FloorTicks}, CeilingTicks={CeilingTicks}]";
 }

@@ -74,4 +74,7 @@ public readonly struct Trade
         Quantity = quantity;
         ExecutedAtNs = DateHelper.GetCurrentTimestampNs();
     }
+
+    public override string ToString()
+        => $"Trade [InstrumentId={InstrumentId}, MakerOrderId={MakerOrderId}, TakerOrderId={TakerOrderId}, PriceTicks={PriceTicks}, Quantity={Quantity}, ExecutedAtNs={ExecutedAtNs}]";
 }

@@ -8,6 +8,9 @@ namespace GodStockExchange.Domain.Models;
 /// </summary>
 public struct Order
 {
+    /// <summary>
+    /// Exchange-assigned unique identifier for the order.
+    /// </summary>
     public long OrderId { get; }
 
     public long ClientOrderId { get; }

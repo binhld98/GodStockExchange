@@ -20,7 +20,7 @@ public enum MarketPhase : byte
     /// <summary>
     /// Closed trading phase.
     /// </summary>
-    Close = 3,
+    Closed = 3,
 
     /// <summary>
     /// Halted phase, trading is temporarily suspended due to a circuit-breaker, regulatory action, or operational incident.
