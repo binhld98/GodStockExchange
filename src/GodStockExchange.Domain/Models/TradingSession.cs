@@ -3,6 +3,9 @@ using GodStockExchange.Domain.Enums;
 
 namespace GodStockExchange.Domain.Models;
 
+/// <summary>
+/// Represents a trading session for a specific instrument.
+/// </summary>
 public struct TradingSession
 {
     /// <summary>
