@@ -3,17 +3,22 @@ namespace GodStockExchange.MatchingEngine.DataStructures;
 /// <summary>
 /// Represents an integer index with a well-defined "null" value.
 /// </summary>
-public readonly struct Index(int value)
+public readonly struct Index
 {
     /// <summary>
     /// The integer value of this index.
     /// </summary>
-    public int Value { get; } = value;
+    public int Value { get; }
 
     /// <summary>
     /// A sentinel value representing a null index.
     /// </summary>
     public static readonly Index NullIndex = new(-1);
+
+    public Index(int value)
+    {
+        Value = value;
+    }
 
     /// <summary>
     /// Implicit converts an <see cref="Index"/> to an <see cref="int"/>.

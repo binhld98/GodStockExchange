@@ -146,7 +146,7 @@ public sealed class NodePool<T>
     /// <param name="value"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    public int AllocateNode(T value)
+    public int AllocNode(T value)
     {
         if (_freeListHead == NullIndex)
             throw new InvalidOperationException($"Cannot allocate a new node, node pool capacity={_capacity} exhausted.");
