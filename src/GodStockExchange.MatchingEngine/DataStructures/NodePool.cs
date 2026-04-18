@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using static GodStockExchange.MatchingEngine.DataStructures.Index;
 
 namespace GodStockExchange.MatchingEngine.DataStructures;
 
@@ -29,11 +30,11 @@ public sealed class NodePool<T>
     #region Free List State
 
     /// <summary>
-    /// Index of the first free node in the free list, or <see cref="Index.Null"/> if there are no free nodes available.
+    /// Index of the first free node in the free list, or <see cref="NullIndex"/> if there are no free nodes available.
     /// Nodes in the free list are linked together using their <see cref="Node{T}.Prev"/> field, which stores the index of the next free node.
-    /// When <c>_freeListHead</c> is <see cref="Index.Null"/>, it indicates that the pool is exhausted and no more nodes can be allocated until some are freed back to the pool.
+    /// When <c>_freeListHead</c> is <see cref="NullIndex"/>, it indicates that the pool is exhausted and no more nodes can be allocated until some are freed back to the pool.
     /// </summary>
-    private int _freeListHead = Index.Null;
+    private int _freeListHead = NullIndex;
 
     /// <summary>
     /// <c>true</c> if there are no allocated nodes in the list, <c>false</c> otherwise.
@@ -72,14 +73,14 @@ public sealed class NodePool<T>
         for (int i = 0; i < _capacity - 1; i++)
         {
             _nodes[i].Value = default!;
-            _nodes[i].Next = Index.Null;
+            _nodes[i].Next = NullIndex;
             _nodes[i].Prev = i + 1;
             _nodes[i].IsAllocated = false;
         }
 
         _nodes[_capacity - 1].Value = default!;
-        _nodes[_capacity - 1].Next = Index.Null;
-        _nodes[_capacity - 1].Prev = Index.Null;
+        _nodes[_capacity - 1].Next = NullIndex;
+        _nodes[_capacity - 1].Prev = NullIndex;
 
         _freeListHead = 0;
         Count = 0;
@@ -140,14 +141,14 @@ public sealed class NodePool<T>
         => _nodes[index].Prev = prev;
 
     /// <summary>
-    /// Allocates a new node from the free list, initializes it with the specified <paramref name="value"/>, and returns its index.
+    /// Allocates a new node from the free list, initializes it with the specified <paramref name="value"/>, and returns its 
     /// </summary>
     /// <param name="value"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
     public int AllocateNode(T value)
     {
-        if (_freeListHead == Index.Null)
+        if (_freeListHead == NullIndex)
             throw new InvalidOperationException($"Cannot allocate a new node, node pool capacity={_capacity} exhausted.");
 
         Count++;
@@ -155,8 +156,8 @@ public sealed class NodePool<T>
         _freeListHead = _nodes[allocatedIndex].Prev;
 
         _nodes[allocatedIndex].Value = value;
-        _nodes[allocatedIndex].Next = Index.Null;
-        _nodes[allocatedIndex].Prev = Index.Null;
+        _nodes[allocatedIndex].Next = NullIndex;
+        _nodes[allocatedIndex].Prev = NullIndex;
         _nodes[allocatedIndex].IsAllocated = true;
 
         return allocatedIndex;
@@ -174,7 +175,7 @@ public sealed class NodePool<T>
 
         Count--;
         _nodes[index].Value = default!;
-        _nodes[index].Next = Index.Null;
+        _nodes[index].Next = NullIndex;
         _nodes[index].Prev = _freeListHead;
         _nodes[index].IsAllocated = false;
         _freeListHead = index;

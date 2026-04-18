@@ -13,7 +13,7 @@ public readonly struct Index(int value)
     /// <summary>
     /// A sentinel value representing a null index.
     /// </summary>
-    public static readonly Index Null = new(-1);
+    public static readonly Index NullIndex = new(-1);
 
     /// <summary>
     /// Implicit converts an <see cref="Index"/> to an <see cref="int"/>.
