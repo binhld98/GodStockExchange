@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{07B41D4C-7C4
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodStockExchange.Domain", "src\GodStockExchange.Domain\GodStockExchange.Domain.csproj", "{DA674F30-E90E-4DF2-B101-0A994C4C832D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodStockExchange.MatchingEngine", "src\GodStockExchange.MatchingEngine\GodStockExchange.MatchingEngine.csproj", "{D47CA3B1-63CA-4518-95FD-329B6C0D358A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +22,13 @@ Global
 		{DA674F30-E90E-4DF2-B101-0A994C4C832D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DA674F30-E90E-4DF2-B101-0A994C4C832D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DA674F30-E90E-4DF2-B101-0A994C4C832D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D47CA3B1-63CA-4518-95FD-329B6C0D358A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D47CA3B1-63CA-4518-95FD-329B6C0D358A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D47CA3B1-63CA-4518-95FD-329B6C0D358A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D47CA3B1-63CA-4518-95FD-329B6C0D358A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{DA674F30-E90E-4DF2-B101-0A994C4C832D} = {07B41D4C-7C46-4345-A008-D6C2350CA614}
+		{D47CA3B1-63CA-4518-95FD-329B6C0D358A} = {07B41D4C-7C46-4345-A008-D6C2350CA614}
 	EndGlobalSection
 EndGlobal
