@@ -392,6 +392,9 @@ FodyWeavers.xsd
 !.vscode/extensions.json
 *.code-workspace
 
+# C# Dev Kit language service cache files
+*.lscache
+
 # Local History for Visual Studio Code
 .history/
 
