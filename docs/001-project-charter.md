@@ -2,10 +2,10 @@
 
 # OpenEquityExchange – Electronic Trading Platform
 
-**Document Version:** 1.0  
-**Status:** Draft ‒ Open for Review  
-**Author:** BinhLD  
-**Last Updated:** May 2026
+**Version:** 1.1
+**Status:** Draft ‒ Open for Review
+**Date:** June 2026
+**Author:** BinhLD
 
 ---
 
@@ -13,7 +13,7 @@
 
 **OpenEquityExchange** is a production-grade electronic trading platform built on the .NET ecosystem. It implements the core infrastructure of a modern stock exchange: order ingestion, risk validation, order matching, and market data distribution.
 
-The project emphasizes architectural rationale, performance characteristics, and implementation trade-offs alongside source code.
+The project follows a strict **"measure before optimizing"** philosophy. The initial phases focus on building a complete, functionally correct exchange using proven standard libaries. Subsequent phases will systematically replace identified bottlenecks with custom implementations to achieve ultra-low latency targets.
 
 ---
 
@@ -21,37 +21,38 @@ The project emphasizes architectural rationale, performance characteristics, and
 
 ### 1.1 Project Identity
 
-| Attribute         | Value                                                                |
-| ----------------- | -------------------------------------------------------------------- |
-| **Project Name**  | OpenEquityExchange (OEE)                                             |
-| **Project Type**  | Open-source .NET reference implementation                            |
-| **Primary Stack** | .NET 8, C# 12                                                        |
-| **Timeline**      | Q2 2026 – Q4 2026 (9 months)                                         |
-| **Team**          | Solo developer                                                       |
-| **License**       | MIT                                                                  |
-| **Repository**    | [OpenEquityExchange](https://github.com/binhld98/OpenEquityExchange) |
+| Attribute     | Value                                     |
+| ------------- | ----------------------------------------- |
+| Project Name  | OpenEquityExchange (OEE)                  |
+| Project Type  | Open-source .NET reference implementation |
+| Primary Stack | .NET 8, C# 12                             |
+| Timeline      | Q2 2026 – Q4 2026 (9 months)              |
+| Team          | Solo developer                            |
+| License       | MIT                                       |
+| Repository    | [OpenEquityExchange](#)                   |
 
 ### 1.2 Objectives
 
-| ID        | Objective                                                  | Success Metric                                               |
-| --------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
-| **BO-01** | Reference implementation for stock exchange infrastructure | End-to-end flow from order entry to execution to market feed |
-| **BO-02** | Demonstrate low-latency .NET techniques on a real domain   | Techniques are benchmarked and trade-offs documented         |
-| **BO-03** | Production-quality, maintainable codebase                  | ≥80% test coverage; no paid dependencies                     |
-| **BO-04** | Self-contained public reference                            | Reproducible benchmarks and comprehensive documentation      |
+| ID    | Objective                                                  | Success Metric                                               |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| BO-01 | Reference implementation for stock exchange infrastructure | End-to-end flow from order entry to execution to market feed |
+| BO-02 | Demonstrate low-latency .NET techniques on a real domain   | Techniques are benchmarked and trade-offs documented         |
+| BO-03 | Production-quality, maintainable codebase                  | `≥80% test coverage`; no paid dependencies                   |
+| BO-04 | Self-contained public reference                            | Reproducible benchmarks and comprehensive documentation      |
 
 ---
 
 ## 2. NON-FUNCTIONAL REQUIREMENTS
 
-| Requirement                    | Target                                       |
-| ------------------------------ | -------------------------------------------- |
-| Average order-to-match latency | <1ms                                         |
-| Sustained throughput           | ≥10,000 orders/sec                           |
-| Replay behaviour               | Deterministic                                |
-| Recovery objective             | <30 seconds                                  |
-| Memory stability               | No unbounded memory growth                   |
-| Observability                  | Metrics, traces, and logs for critical paths |
+| Requirement                | Target                                       |
+| -------------------------- | -------------------------------------------- |
+| **Order-To-Match Latency** | $P_{99}$ `<1ms`                              |
+| **Sustained Throughput**   | `≥10,000 orders/second`                      |
+| **System Uptime**          | `99.99%`                                     |
+| **Replay Behaviour**       | Deterministic                                |
+| **Recovery Objective**     | $P_{99}$ `<30s`                              |
+| **Memory Stability**       | No unbounded memory growth                   |
+| **Observability**          | Metrics, traces, and logs for critical paths |
 
 ---
 
@@ -59,20 +60,21 @@ The project emphasizes architectural rationale, performance characteristics, and
 
 ### 3.1 In-Scope
 
-| Component                  | Details                                                                   |
-| -------------------------- | ------------------------------------------------------------------------- |
-| **Market Access**          | FIX gateway, session management, shard routing                            |
-| **Sequencer**              | Event ordering and sequence coordination                                  |
-| **Risk Engine**            | Pre-trade checks: position limits, circuit breakers, order validation     |
-| **Matching Engine**        | Central limit order book, price-time priority, per-instrument sharding    |
-| **Market Data**            | Level 1 snapshots, Level 2 book updates, trade ticks, real-time transport |
-| **Persistence & Recovery** | Write-ahead log, event replay, snapshot recovery                          |
-| **Scalability**            | Per-instrument shards, load balancing                                     |
-| **Observability**          | OpenTelemetry, Prometheus, Grafana                                        |
-| **Testing**                | Unit, integration, BenchmarkDotNet suites, load testing                   |
+| Component                  | Details                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Market Access**          | FIX & WebSocket protocols, session management, message normalization, shard routing                                                 |
+| **Sequencer**              | Event ordering, deterministic timestamping, Write-ahead log (WAL)                                                                   |
+| **Risk Engine**            | **Stateless Risk** (price/quantity > 0, symbol exits, etc) and **Stateful Risk** (credit & buying power limit, position limit, etc) |
+| **Matching Engine**        | Central limit order book (CLOB), price-time priority matching, per-instrument sharding                                              |
+| **Market Data**            | Level 1 snapshots, Level 2 book updates, trade ticks, real-time transport                                                           |
+| **Persistence & Recovery** | Write-ahead log, event replay, snapshot recovery                                                                                    |
+| **Scalability**            | Per-instrument shards, load balancing                                                                                               |
+| **Observability**          | OpenTelemetry, Prometheus, Grafana                                                                                                  |
+| **Testing**                | Unit, integration, BenchmarkDotNet suites, load testing                                                                             |
 
 ### 3.2 Out-of-Scope
 
+- REST API for cold-path queries, admin config
 - Real monetary transactions or user account ledgers
 - Derivatives (options, futures, multi-leg orders)
 - Regulatory compliance (MiFID II, Reg NMS, SEC)
@@ -85,12 +87,14 @@ The project emphasizes architectural rationale, performance characteristics, and
 
 ## 4. KEY DELIVERABLES
 
-### 4.1 Core Systems
+### 4.1 Core System Components
 
 | Deliverable                      | Type        |
 | -------------------------------- | ----------- |
+| Dual FIX + WebSocket Gateway     | Source Code |
+| Internal Type Normaliser         | Source Code |
+| Shard Manager & Shard Balancer   | Source Code |
 | Matching Engine & Order Book     | Source Code |
-| Gateway & Risk Services          | Source Code |
 | Market Data Publisher            | Source Code |
 | Persistence Layer (WAL + Replay) | Source Code |
 
@@ -107,28 +111,25 @@ The project emphasizes architectural rationale, performance characteristics, and
 
 | Deliverable                          | Type     |
 | ------------------------------------ | -------- |
+| Exchange Domain Knowledge            | Markdown |
 | Architecture Decision Records (ADRs) | Markdown |
 | Low-Latency Technique Guide          | Markdown |
-| Exchange Domain Primer               | Markdown |
 | System Design Document               | Markdown |
-| API / Protocol Reference             | Markdown |
-| Deployment Guide + Docker Compose    | Markdown |
-| README & Quick Start                 | Markdown |
+| Build & Deployment Guide             | Markdown |
 
 ### 4.4 Publication
 
-| Deliverable           | Type           |
-| --------------------- | -------------- |
-| GitHub Repository     | Public Code    |
-| Technical Blog Post   | Blog           |
-| Architecture Diagrams | PNG / SVG      |
-| Demo Scripts          | Shell / Python |
+| Deliverable               | Type        |
+| ------------------------- | ----------- |
+| Public GitHub Repository  | Source Code |
+| Porfolio Artifact         | Social Post |
+| Online Accessible Gateway | Demo System |
 
 ---
 
 ## 5. SUCCESS CRITERIA
 
-### Correctness
+### 5.1 Correctness
 
 - Orders match by price-time priority with no exceptions
 - No lost orders or duplicate fills under load
@@ -136,20 +137,19 @@ The project emphasizes architectural rationale, performance characteristics, and
 - Crash recovery restores a consistent state
 - Test coverage ≥80% across core components
 
-### Performance
+### 5.2 Performance
 
-- Order-to-match latency <1ms (average, single node)
-- Market data jitter <100µs
-- Sustained throughput ≥10,000 orders/second
-- GC pressure is measured and documented
+- Order-to-match latency $P_{99}$ `<1ms`
+- Sustained throughput `≥10,000 orders/second`
+- Market data jitter $P_{99}$ `<100µs`
 
-### Code Quality
+### 5.3 Code Quality
 
 - Single responsibility per component
+- Consistency naming convention
 - No paid dependencies
-- Structured logs and distributed traces on critical paths
 
-### Documentation
+### 5.4 Documentation
 
 - Each module documents responsibilities and architectural rationale
 - Each optimisation documents rationale, trade-offs, and measured impact
@@ -163,65 +163,64 @@ The project emphasizes architectural rationale, performance characteristics, and
 ### 6.1 Component Overview
 
 ```text
-┌──────────────────┐
-│   FIX Gateway    │ → Ingestion, session management, shard routing
-└────────┬─────────┘
-         │
-┌────────▼─────────┐
-│   Sequencer      │ → Event ordering and sequence coordination
-└────────┬─────────┘
-         │
-┌────────▼─────────┐
-│   Risk Engine    │ → Pre-trade validation
-└────────┬─────────┘
-         │
-┌────────▼──────────────┐
-│   Matching Engine     │ → Central limit order book
-│   (Shard Manager)     │ → One shard per instrument
-└────────┬──────────────┘
-         │
-         ├──→ Persistence
-         ├──→ Market Data Publisher
-         └──→ Observability
+┌──────────────────────────────────────┐
+│      FIX +  WebSocket Gateway        │ → Order ingestion, session management, stateless
+└──────────────────┬───────────────────┘   risk checks, internal type normalization
+                   │
+┌──────────────────▼───────────────────┐
+│              Sequencer           ->  │ → Event ordering, deterministic timestamping, write-ahead log
+└──────────────────┬───────────────────┘
+                   │
+┌──────────────────▼───────────────────┐
+│         Stateful Risk Engine         │ → Stateful risk checks: buying power, position limits, etc.
+└──────────────────┬───────────────────┘
+                   │
+┌──────────────────▼───────────────────┐
+│           Matching Engine            │ → Central limit order book, price-time priority matching
+└──────────────────┬───────────────────┘
+                   │
+                   ├──→ Persistence
+                   ├──→ Market Data Publisher
+                   └──→ Observability
+
 ```
 
 ### 6.2 Design Principles
 
-| Principle                     | In Practice                                                              |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| **Deterministic processing**  | Given the same sequence of inputs, the engine produces identical outputs |
-| **Clean architecture**        | Domain logic is isolated from infrastructure; dependencies point inward  |
-| **Immutability**              | Orders and trades are never modified after creation                      |
-| **Event sourcing**            | State changes are append-only events                                     |
-| **Observable by default**     | Critical paths emit logs, traces, and metrics                            |
-| **Testability**               | Components use dependency injection and avoid static state               |
-| **Measure before optimising** | Changes require benchmark evidence                                       |
+| Principle                     | In Practice                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| **Deterministic Processing**  | Given the same sequence of inputs, the engine produces identical outputs         |
+| **Deterministic Time**        | All downstream components rely exclusively on sequencer-assigned timestamps      |
+| **Immutability**              | Orders and trades are never modified after creation                              |
+| **Event Sourcing**            | State changes are append-only events                                             |
+| **Clean Architecture**        | Domain logic is isolated from infrastructure; dependencies point inward          |
+| **Observable by Default**     | Critical paths emit logs, traces, and metrics without blocking execution threads |
+| **Testability**               | Components use dependency injection and avoid static state                       |
+| **Measure before Optimising** | Changes require benchmark evidence                                               |
 
 ### 6.3 Sequence Model
 
 Sequence is a core exchange concept. Every event entering the system receives a unique, monotonically increasing sequence number before processing.
 
-| Property              | Requirement                                                                  |
-| --------------------- | ---------------------------------------------------------------------------- |
-| **Monotonic**         | Sequence numbers never decrease                                              |
-| **Contiguous**        | Unexpected gaps indicate missing or delayed events and require investigation |
-| **Single assignment** | Sequence numbers are assigned by a dedicated coordination component          |
-| **Determinism gate**  | Downstream components process events in sequence order                       |
-| **Recovery anchor**   | WAL and snapshots are indexed by sequence number                             |
+| Property          | Requirement                                                                  |
+| ----------------- | ---------------------------------------------------------------------------- |
+| Monotonic         | Sequence numbers never decrease                                              |
+| Contiguous        | Unexpected gaps indicate missing or delayed events and require investigation |
+| Single assignment | Sequence numbers are assigned by a dedicated coordination component          |
+| Determinism gate  | Downstream components process events in sequence order                       |
+| Recovery anchor   | WAL and snapshots are indexed by sequence number                             |
 
 Replaying the WAL from sequence `N` reconstructs identical state.
 
 ### 6.4 Low-Latency .NET Techniques
 
-| Technique                             | Where Applied                          | Purpose                         |
-| ------------------------------------- | -------------------------------------- | ------------------------------- |
-| **System.IO.Pipelines**               | FIX gateway TCP I/O                    | Efficient socket processing     |
-| **Bounded lock-free messaging**       | Inter-component communication          | Low-latency bounded hand-off    |
-| **Span<T> / Memory<T>**               | FIX parsing, market data serialisation | Zero-copy buffer slicing        |
-| **ArrayPool<T>**                      | Parsing and serialisation buffers      | Reduce allocations on hot paths |
-| **Struct-based domain types**         | Price levels, order queue entries      | Reduce heap allocations         |
-| **Object pooling**                    | Orders, execution reports              | Reduce GC pressure              |
-| **BenchmarkDotNet + MemoryDiagnoser** | Performance-critical code              | Allocation and latency analysis |
+| Technique                       | Where Applied                 | Purpose                            |
+| ------------------------------- | ----------------------------- | ---------------------------------- |
+| **System.IO.Pipelines**         | Protocol handling             | Efficient socket processing        |
+| **Bounded lock-free messaging** | Inter-component communication | Low-latency bounded hand-off       |
+| **Span & ArrayPool**            | Parsing & Serialisation       | Zero-copy buffer slicing           |
+| **Struct Types**                | Domain models & values        | Reduce heap allocations            |
+| **Thread Affinitization**       | Matching & Sequencing engines | Eliminate context-switching jitter |
 
 ---
 
@@ -229,71 +228,31 @@ Replaying the WAL from sequence `N` reconstructs identical state.
 
 Four sequential phases across Q2–Q4 2026. Each phase ends with a demonstrable output.
 
-### Phase 1 — Foundation
+### Phase 1 — Functional Foundation
 
-**Goal:** Single-instrument exchange on correct .NET foundations
+**Goal:** Build a complete, working exchange using proven libraries to establish a functional baseline.  
+**Exit Milestone:** System is fully functional and stable; orders are matched and broadcasted over network protocols.
 
-- [ ] Core value types: `Order`, `Trade`, `PriceLevel`, `Instrument`
-- [ ] Single-instrument matching engine
-- [ ] FIX gateway stub
-- [ ] Order pipeline implementation
-- [ ] Level 1 market data feed
-- [ ] Write-ahead log and crash recovery
-- [ ] Unit test baseline
+### Phase 2 — Measurement & Benchmarking
 
-**Exit milestone:** System accepts orders and produces correct fills for one instrument.
+**Goal:** Use BenchMarkDotNet and profiling tools to identify specific performance bottlenecks.  
+**Exit Milestone:** Detailed performance report highlighting the bottlenecks to be replaced.
 
----
+### Phase 3 — High-Performance Refatoring
 
-### Phase 2 — Scaling & Observability
+**Goal:** Replace identified bottlenecks with custom component via using low latency .NET techniques.  
+**Exit Milestone:** System meets original target of `<1ms` latency and `10,000 orders/seconds` throughput via custom optimization
 
-**Goal:** Multi-instrument support with full visibility
+### Phase 4 — Final validation & Publication
 
-- [ ] Shard manager
-- [ ] Risk engine
-- [ ] OpenTelemetry, Prometheus, Grafana
-- [ ] Synthetic order generator
-- [ ] Integration test suite
-
-**Exit milestone:** Multiple instruments handled concurrently with observable system behaviour.
-
----
-
-### Phase 3 — Hardening & Performance
-
-**Goal:** Verified performance and evidence-based optimisation
-
-- [ ] Benchmark suite
-- [ ] Object pooling where justified
-- [ ] Stress testing at ≥10,000 orders/second
-- [ ] Failure scenarios and replay validation
-- [ ] Level 2 market data
-- [ ] Additional order types
-- [ ] ADR per significant optimisation
-
-**Exit milestone:** Performance targets validated and documented.
-
----
-
-### Phase 4 — Documentation & Publication
-
-**Goal:** Complete, self-contained reference implementation
-
-- [ ] Low-latency technique guide
-- [ ] Exchange domain primer
-- [ ] ADRs for major design decisions
-- [ ] System design documentation
-- [ ] Deployment guide
-- [ ] Repository documentation and templates
-- [ ] Technical blog post
-
-**Exit milestone:** Repository is public and onboarding takes under one hour.
+**Goal:** Complete documentation and public release of the reference implementation.  
+**Exit Milestone:** Repository is public and onboarding takes under one hour.
 
 ---
 
 ## 8. DEPENDENCIES
 
-All dependencies are open-source and free.
+All dependencies are open-source and free to use.
 
 | Library                     | Purpose                         |
 | --------------------------- | ------------------------------- |
@@ -314,12 +273,12 @@ All dependencies are open-source and free.
 
 ### 9.1 Risks
 
-| Risk                               | Likelihood | Impact | Mitigation                          |
-| ---------------------------------- | ---------: | -----: | ----------------------------------- |
-| Scope creep from new feature ideas |       High | Medium | Maintain strict scope boundaries    |
-| Over-engineering                   |     Medium |   High | Deliver end-to-end capability first |
-| Performance targets not met        |     Medium |   High | Benchmark early and iterate         |
-| Solo developer delivery delays     |     Medium | Medium | Time-box phases                     |
+| Risk                               | Likelihood | Impact | Mitigation                                            |
+| ---------------------------------- | ---------: | -----: | ----------------------------------------------------- |
+| Scope creep from new feature ideas |       High | Medium | Maintain strict scope boundaries                      |
+| Over-engineering                   |     Medium |   High | Deliver end-to-end capability first                   |
+| Performance targets not met        |     Medium |   High | Benchmark early and iterate                           |
+| Solo developer delivery delays     |     Medium | Medium | Time-box phases, isolate core book testing in Phase 1 |
 
 ### 9.2 Assumptions
 
@@ -344,10 +303,10 @@ All dependencies are open-source and free.
 ## 10. ROLES & TIME ALLOCATION
 
 | Role            | Responsibilities                    | Allocation |
-| --------------- | ----------------------------------- | ---------- |
-| **Developer**   | Implementation and validation       | ~50%       |
-| **QA Engineer** | Testing and failure scenarios       | ~20%       |
-| **Architect**   | ADRs and design decisions           | ~15%       |
-| **Tech Writer** | Documentation and technical content | ~15%       |
+| --------------- | ----------------------------------- | ---------: |
+| **Developer**   | Implementation and validation       |       ~50% |
+| **QA Engineer** | Testing and failure scenarios       |       ~20% |
+| **Architect**   | ADRs and design decisions           |       ~15% |
+| **Tech Writer** | Documentation and technical content |       ~15% |
 
 ---
