@@ -2,7 +2,7 @@
 
 # OpenEquityExchange – Electronic Trading Platform
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Status:** Draft – Under Review  
 **Date:** June 2026  
 **Author:** BinhLD
@@ -48,7 +48,7 @@ The project follows a strict **"measure before optimising"** philosophy. Early p
 
 | Concern                  | Detail                                                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Market Access            | FIX & WebSocket protocols; client authentication; session management; message normalisation               |
+| Market Access            | FIX protocols; client authentication; session management; message normalisation                           |
 | Event Sequencing         | Event ordering; timestamp assignment; write-ahead log (WAL)                                               |
 | Risk Management          | **Stateless Risk** (e.g., price/quantity > 0) and **Stateful Risk** (e.g., credit & buying power limit)   |
 | Order Routing            | Per-instrument sharding; order routing; dynamic shard balancing                                           |
@@ -75,7 +75,7 @@ The project follows a strict **"measure before optimising"** philosophy. Early p
 
 The platform delivers the following exchange-grade capabilities across its processing pipeline:
 
-**Market Access & Normalisation** — Accepts orders from external clients via FIX & WebSocket protocols. Performs session authentication, inbound message validation, and format normalisation before forwarding events for internal processing.
+**Market Access & Normalisation** — Accepts orders from external clients via FIX protocols. Performs session authentication, inbound message validation, and format normalisation before forwarding events for internal processing.
 
 **Deterministic Event Sequencing** — Assigns a globally unique, monotonically increasing sequence number to every inbound event. Sequence numbers serve as the authoritative ordering mechanism for all downstream components and as the primary anchor for state recovery.
 
