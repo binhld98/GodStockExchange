@@ -2,18 +2,18 @@
 
 # OpenEquityExchange – Electronic Trading Platform
 
-**Version:** 1.4  
-**Status:** Draft – Under Review  
-**Date:** June 2026  
+**Version:** 1.5<br>
+**Status:** Active<br>
+**Date:** August 2026<br>
 **Author:** BinhLD
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**OpenEquityExchange (OEE)** is a production-grade electronic trading platform built on the .NET ecosystem. The platform implements the core infrastructure of a modern stock exchange: order ingestion, risk validation, order matching, and market data distribution.
+**OpenEquityExchange (OEE)** is an electronic trading platform built on the .NET ecosystem. It demonstrates the core infrastructure of a modern stock exchange: order ingestion, risk checks, order matching, and market data distribution.
 
-The project follows a strict **"measure before optimising"** philosophy. Early phases focus on building a complete, functionally correct exchange. Subsequent phases identify and resolve performance bottlenecks using profiling evidence rather than assumption.
+The project follows a **"measure before optimising"** philosophy. It first builds a complete, correct processing flow. Later phases use profiling and benchmarks to identify and address real bottlenecks.
 
 ---
 
@@ -29,16 +29,16 @@ The project follows a strict **"measure before optimising"** philosophy. Early p
 | License        | MIT                                  |
 | Timeline       | Q2 2026 – Q4 2026 (approx. 9 months) |
 | Team Structure | Solo developer (all roles)           |
-| Repository     | [OpenEquityExchange](#)              |
+| Repository     | [OpenEquityExchange](../README.md)   |
 
 ### 1.2 Strategic Objectives
 
-| ID    | Objective                                                                          | Success Metric                                                                         |
-| ----- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| BO‑01 | Deliver a complete, working exchange reference implementation                      | End-to-end order flow from client ingestion through execution to market data broadcast |
-| BO‑02 | Demonstrate production-grade performance techniques in a realistic exchange domain | All techniques benchmarked; trade-offs documented with measured evidence               |
-| BO‑03 | Maintain a production-quality, maintainable codebase                               | ≥ 80% automated test coverage; zero paid dependencies                                  |
-| BO‑04 | Provide a self-contained, publicly accessible educational reference                | Reproducible benchmarks and full documentation; new developer onboarding ≤ 1 hour      |
+| ID    | Objective                                                              | Success Metric                                                                           |
+| ----- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| BO‑01 | Deliver a complete, working exchange reference implementation          | End-to-end order flow from client ingestion through execution to market data publication |
+| BO‑02 | Demonstrate high-performance techniques in a realistic exchange domain | All techniques benchmarked; trade-offs documented with measured evidence                 |
+| BO‑03 | Maintain a production-quality, maintainable codebase                   | ≥ 80% automated test coverage; zero paid dependencies                                    |
+| BO‑04 | Provide a self-contained, publicly accessible educational reference    | Reproducible benchmarks and full documentation; new developer onboarding ≤ 1 hour        |
 
 ---
 
@@ -46,17 +46,17 @@ The project follows a strict **"measure before optimising"** philosophy. Early p
 
 ### 2.1 In-Scope
 
-| Concern                  | Detail                                                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Market Access            | FIX protocols; client authentication; session management; message normalisation                           |
-| Event Sequencing         | Event ordering; timestamp assignment; write-ahead log (WAL)                                               |
-| Risk Management          | **Stateless Risk** (e.g., price/quantity > 0) and **Stateful Risk** (e.g., credit & buying power limit)   |
-| Order Routing            | Per-instrument sharding; order routing; dynamic shard balancing                                           |
-| Order Matching           | Central limit order book (CLOB); price-time priority order matching; full order lifecycle; event emission |
-| Market Data Distribution | Real-time Level 1 and Level 2 order book updates; trade tick reports                                      |
-| Persistence & Recovery   | Append-only event log; state snapshot management; deterministic crash recovery                            |
-| Observability            | Structured metrics, distributed tracing, and logs across critical processing paths                        |
-| Quality Assurance        | Unit, integration, and load testing; performance benchmarking with reproducible results                   |
+| Concern                  | Detail                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Market Access            | FIX protocol; session management; message normalisation                                                           |
+| Event Sequencing         | Event ordering; timestamp assignment; write-ahead log (WAL)                                                       |
+| Risk Management          | **Stateless Risks** (e.g., price/quantity > 0) and **Stateful Risks** (credit, position, and buying-power limits) |
+| Order Routing            | Per-instrument sharding and routing                                                                               |
+| Order Matching           | Central limit order book (CLOB); price-time priority order matching; full order lifecycle; event emission         |
+| Market Data Distribution | Real-time Level 1 and Level 2 order book updates; trade tick reports                                              |
+| Persistence & Recovery   | Append-only request log; state snapshots; deterministic crash recovery                                            |
+| Observability            | Structured metrics, distributed tracing, and logs across critical processing paths                                |
+| Quality Assurance        | Unit, integration, and load testing; performance benchmarking with reproducible results                           |
 
 ### 2.2 Out-of-Scope
 
@@ -73,21 +73,21 @@ The project follows a strict **"measure before optimising"** philosophy. Early p
 
 ## 3. FUNCTIONAL REQUIREMENTS
 
-The platform delivers the following exchange-grade capabilities across its processing pipeline:
+The platform delivers the following capabilities across its processing pipeline:
 
-**Market Access & Normalisation** — Accepts orders from external clients via FIX protocols. Performs session authentication, inbound message validation, and format normalisation before forwarding events for internal processing.
+**Market Access & Normalisation** — Accepts order requests from external clients via FIX protocol. Performs session management, inbound message validation, and format normalisation before internal processing.
 
-**Deterministic Event Sequencing** — Assigns a globally unique, monotonically increasing sequence number to every inbound event. Sequence numbers serve as the authoritative ordering mechanism for all downstream components and as the primary anchor for state recovery.
+**Deterministic Event Sequencing** — Assigns each accepted order request a globally unique, monotonically increasing sequence number. Sequence numbers serve as the authoritative ordering mechanism for all downstream components and as the primary anchor for state recovery.
 
-**Two-Tier Risk Validation** — Enforces a two-stage pre-trade risk gate. Stateless checks are applied at the gateway to reject clearly invalid orders. Stateful checks (credit exposure, position limits, and buying power) are enforced after sequencing to ensure a consistent account state across all participants.
+**Two-Tier Risk Validation** — Enforces a two-stage pre-trade risk gate. Stateless checks at the gateway reject clearly invalid requests. Stateful checks run after sequencing and before instrument routing, keeping each account's state consistent.
 
-**Order Matching** — Maintains a central limit order book per instrument shard. Matches resting and incoming orders by price-time priority. Emits structured execution events for fills, partial fills, and cancellations.
+**Order Matching** — Maintains a central limit order book per instrument shard. Matches resting and incoming orders by price-time priority. Emits immutable domain events for fills, partial fills, and cancellations.
 
-**Market Data Distribution** — Publishes real-time order book snapshots, incremental book updates, and trade reports to downstream consumers with minimal and measurable latency.
+**Market Data Distribution** — Publishes real-time order-book snapshots, incremental updates, and trade reports to downstream consumers with measured latency.
 
-**Persistence & Crash Recovery** — Records all events to a write-ahead log prior to processing. Supports deterministic state reconstruction through full log replay and periodic snapshot-based recovery, with recovery time bounded at $P_{99}$ < 30 seconds.
+**Persistence & Crash Recovery** — Records all accepted order requests to the write-ahead log prior to processing. Supports deterministic state reconstruction through full log replay and periodic snapshot-based recovery.
 
-**Observability** — Emits structured telemetry (metrics, distributed traces, and structured logs) across all hot paths, enabling real-time performance monitoring and post-incident diagnostics.
+**Observability** — Emits structured telemetry (metrics, distributed traces, and structured logs) across critical processing paths, enabling real-time performance monitoring and post-incident diagnostics.
 
 ---
 
@@ -146,16 +146,16 @@ The platform delivers the following exchange-grade capabilities across its proce
 
 ### 5.2 Performance
 
-- Order-to-Match Latency: $P_{99}$ < 1ms
 - Sustained Order Throughput: ≥ 10,000 orders/second
-- Market Data Jitter: $P_{99}$ < 100 µs
+- Order-to-Match Latency: $P_{99}$ < 1 ms
+- Match-to-Publish Latency: $P_{99}$ < 100 µs
 - Recovery Time Objective: $P_{99}$ < 30 seconds
 
 ### 5.3 Code & Architecture Quality
 
 - Single responsibility per component
 - Consistent naming conventions throughout the codebase
-- Zero paid dependencies
+- No paid dependency is required to build or run the system
 - ADRs cover all significant architectural decisions
 
 ### 5.4 Documentation
@@ -173,43 +173,43 @@ The platform delivers the following exchange-grade capabilities across its proce
 OEE follows a sequential pipeline architecture in which every order traverses a fixed set of processing stages. Each stage has a clearly bounded responsibility and communicates with adjacent stages through well-defined contracts.
 
 ```text
-┌──────────────────────────────────────┐
-│          Market Access Gateway       │ → Ingestion · Authentication · Stateless Validation · Normalisation
-└──────────────────┬───────────────────┘
-                   │
-┌──────────────────▼───────────────────┐
-│              Sequencer               │ → Global Ordering · Authoritative Timestamping · Write-Ahead Log
-└──────────────────┬───────────────────┘
-                   │
-┌──────────────────▼───────────────────┐
-│            Shard Manager             │ → Instrument Routing · Load Distribution
-└──────────────────┬───────────────────┘
-                   │
-┌──────────────────▼───────────────────┐
-│             Risk Engine              │ → Stateful Validation
-└──────────────────┬───────────────────┘
-                   │
-┌──────────────────▼───────────────────┐
-│           Matching Engine            │ → Central Limit Order Book · Price-Time Priority · Event Emission
-└──────────────────┬───────────────────┘
-                   │
-                   ├──► Persistence
-                   ├──► Market Data Publisher
-                   └──► Observability
+┌──────────────────────────────┐
+│     Market Access Gateway    │ → Request Ingestion · Session Management · Stateless Validation · Message Normalisation
+└───────────────┬──────────────┘
+                │
+┌───────────────▼──────────────┐
+│           Sequencer          │ → Global Ordering · Timestamping · Write-Ahead Log
+└───────────────┬──────────────┘
+                │
+┌───────────────▼──────────────┐
+│          Risk Engine         │ → Stateful Account-Risk Validation
+└───────────────┬──────────────┘
+                │
+┌───────────────▼──────────────┐
+│         Shard Manager        │ → Instrument Sharding & Routing
+└───────────────┬──────────────┘
+                │
+┌───────────────▼──────────────┐
+│        Matching Engine       │ → Central Limit Order Book · Price-Time Priority · Domain Event Emission
+└───────────────┬──────────────┘
+                │
+                ├──► Persistence & Recovery
+                ├──► Market Data Publisher
+                └──► Observability
 ```
 
 ### 6.2 Design Principles
 
-| Principle                 | In Practice                                                                 |
-| ------------------------- | --------------------------------------------------------------------------- |
-| Deterministic Processing  | Given the same sequence of inputs, the engine produces identical outputs    |
-| Deterministic Time        | All downstream components rely exclusively on sequencer-assigned timestamps |
-| Immutability              | Orders and trade records are never modified after creation                  |
-| Event Sourcing            | All state changes are an append-only sequence of events                     |
-| Separation of Concerns    | Dependencies point inward toward the domain logic                           |
-| Observable by Default     | All critical paths emit structured telemetry without impacting throughput   |
-| Testability               | Components use dependency injection and avoid static state                  |
-| Measure before Optimising | Changes require benchmark evidence                                          |
+| Principle                 | In Practice                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| Deterministic Processing  | Given the same sequence of inputs, the engine produces identical outputs           |
+| Deterministic Time        | All downstream components rely exclusively on sequencer-assigned timestamps        |
+| Immutability              | Order requests, domain events, and trade records are never modified after creation |
+| Replayable State          | Accepted requests are durably recorded, and state is rebuilt deterministically     |
+| Separation of Concerns    | Dependencies point inward toward the domain logic                                  |
+| Observable by Default     | Critical paths emit structured telemetry without impacting throughput              |
+| Testability               | Components use dependency injection and avoid static state                         |
+| Measure before Optimising | Changes require benchmark evidence                                                 |
 
 ---
 
@@ -219,8 +219,8 @@ Four sequential phases across Q2–Q4 2026. Each phase produces a stable, demons
 
 ### Phase 1 — Functional Foundation
 
-**Objectives:** Deliver a complete, working exchange using proven libraries to establish a correct functional baseline.  
-**Exit Milestone:** Orders are ingested, risk-validated, matched, and market data is broadcast over the network. All test cases pass.
+**Objectives:** Deliver a complete, working reference flow using proven libraries to establish a correct functional baseline.
+**Exit Milestone:** Requests are ingested, risk-validated, matched, and market data is published over the network. The full test suite passes.
 
 ### Phase 2 — Measurement & Benchmarking
 
@@ -229,8 +229,8 @@ Four sequential phases across Q2–Q4 2026. Each phase produces a stable, demons
 
 ### Phase 3 — High-Performance Refactoring
 
-**Objectives:** Replace identified bottlenecks with custom high-performance alternatives using low-latency .NET techniques.  
-**Exit Milestone:** System meets the original targets of $P_{99}$ < 1ms latency and 10,000 orders/second sustained throughput under load.
+**Objectives:** Replace identified bottlenecks with custom high-performance alternatives using low-latency .NET techniques.
+**Exit Milestone:** The system meets the original targets of $P_{99}$ < 1 ms latency and 10,000 orders/second sustained throughput under load.
 
 ### Phase 4 — Final Validation & Publication
 
@@ -261,7 +261,7 @@ Four sequential phases across Q2–Q4 2026. Each phase produces a stable, demons
 
 | Constraint                  | Detail                                                                    |
 | --------------------------- | ------------------------------------------------------------------------- |
-| No paid dependencies        | All components are built exclusively on open-source libraries             |
+| No paid dependencies        | No paid dependency is required to build or run the system                 |
 | No polyglot runtime         | The system runs entirely within the .NET runtime                          |
 | Sequential delivery         | Each phase must be completed and validated before the next begins         |
 | Synthetic data only         | No integration with external or live market data providers                |
@@ -282,6 +282,6 @@ Four sequential phases across Q2–Q4 2026. Each phase produces a stable, demons
 
 ## 10. REFERENCES
 
-Detailed exchange-domain terminology and architectural concepts are documented in the [Exchange Domain Knowledge Guide](#).
+QuickFIX concepts are documented in the [Introduction to QuickFIX/n](knowledge/001-introduction-to-quickfixn.md).
 
 ---
