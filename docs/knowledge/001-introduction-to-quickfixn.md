@@ -2,18 +2,18 @@
 
 # OpenEquityExchange (OEE) – Market Access Layer (MAL)
 
-**Version:** 1.0  
-**Status:** Draft – Under Review  
-**Author:** BinhLD  
+**Version:** 1.1<br>
+**Status:** Active<br>
+**Author:** BinhLD<br>
 **Date:** July 2026
 
 ---
 
 ## OVERVIEW
 
-QuickFIX/n is a free, open-source, native C# implementation of the FIX (Financial Information eXchange) protocol for .NET. It is the official .NET port of the original C++ QuickFIX engine, maintained by Connamara Systems, and is the de-facto standard FIX engine for .NET-based trading systems.
+QuickFIX/n is a free, open-source, native C# implementation of the FIX (Financial Information eXchange) protocol for .NET. It is a C# port of the original C++ QuickFIX engine, maintained by Connamara Systems as part of the broader QuickFIX project.
 
-QuickFIX/n implements the full FIX session layer — logon, heartbeat, sequence number management, gap fill, and resend — so application code only needs to handle business-level message processing. It handles all low-level FIX concerns automatically: TCP connectivity, message framing, parsing, checksum validation, sequence numbering, heartbeating, and session recovery.
+QuickFIX/n implements the FIX session layer — logon, heartbeat, sequence number management, gap fill, and resend — leaving application code primarily responsible for business-level message processing. It handles TCP connectivity, message framing, parsing, checksum validation, sequence numbering, heartbeating, and session recovery.
 
 **Key properties:**
 
@@ -25,17 +25,14 @@ QuickFIX/n implements the full FIX session layer — logon, heartbeat, sequence 
 | Core NuGet package    | `QuickFIXn.Core`                                   |
 | FIX 4.4 NuGet package | `QuickFIXn.FIX44`                                  |
 
-Since FIX 4.4 is the only version OEE's MAL supports, the project references `QuickFIXn.Core` and `QuickFIXn.FIX44`, both at version 1.14.x:
+Since FIX 4.4 is the only version OEE's MAL supports, the project references `QuickFIXn.FIX44` version 1.14.1:
 
 ```xml
-<!-- Core Engine -->
-<PackageReference Include="QuickFIXn.Core" Version="1.14.*" />
-
 <!-- FIX 4.4 message definitions -->
-<PackageReference Include="QuickFIXn.FIX44" Version="1.14.*" />
+<PackageReference Include="QuickFIXn.FIX44" Version="1.14.1" />
 ```
 
-> **Note on multi-version support:** QuickFIX/n's engine can host multiple FIX versions within a single process, each in an isolated session with its own sequence space and data dictionary. OEE does not use this capability today — FIX 4.4 is the exclusive target for MAL — but extending to another version later only requires adding a new `[SESSION]` block with the appropriate `BeginString` and `DataDictionary`, with no code changes required.
+> **Note on multi-version support:** QuickFIX/n's engine can host multiple FIX versions within a single process, each in an isolated session with its own sequence space and data dictionary. OEE does not use this capability today — FIX 4.4 is the exclusive target for MAL.
 
 ---
 
@@ -69,7 +66,7 @@ A FIX message is a sequence of `tag=value` pairs separated by the SOH control ch
 | --- | -------- | ---------------------------------------------------------------- |
 | 10  | CheckSum | Three-digit modulo-256 sum of all preceding bytes; auto-computed |
 
-> QuickFIX/n populates all header and trailer fields automatically. Application code only ever sets body fields.
+> QuickFIX/n populates the engine-managed header and trailer fields listed above. Application code sets body fields and may add optional header fields through the `IApplication` callbacks when required.
 
 ### 1.3 Sessions and Sequence Numbers
 
@@ -79,7 +76,7 @@ Sequence integrity is fundamental to FIX reliability:
 
 - If a receiver detects a gap, it sends a **ResendRequest** to obtain the missing messages.
 - The sender replays the requested messages, or sends a **SequenceReset-GapFill** if the originals are unavailable.
-- Sequence numbers are typically reset at the start of each trading day via a coordinated Logout/Logon, though continuous-market configurations using non-resetting sequence numbers are also supported.
+- Sequence numbers may be reset at an agreed session boundary, commonly through `ResetSeqNumFlag (141)` during Logon. Continuous sessions with non-resetting sequence numbers are also supported.
 
 ### 1.4 Admin vs. Application Messages
 
@@ -115,7 +112,7 @@ var acceptor = new ThreadedSocketAcceptor(application, storeFactory, settings, l
 acceptor.Start();
 ```
 
-Once `Start()` is called, QuickFIX/n manages all TCP connections and session state. Application code interacts with the library only through `IApplication` callbacks and the static `Session` class when sending messages.
+Once `Start()` is called, QuickFIX/n manages all TCP connections and session state. Application code receives engine events through `IApplication` callbacks and sends messages through `Session.SendToTarget()`.
 
 ### 2.2 Component Diagram
 
@@ -149,7 +146,7 @@ Once `Start()` is called, QuickFIX/n manages all TCP connections and session sta
 | `MemoryStoreFactory`     | Built-in non-durable, in-memory message store                                    |
 | `ILogFactory`            | Produces loggers for raw FIX traffic                                             |
 | `FileLogFactory`         | Writes FIX logs to disk                                                          |
-| `Session`                | Static class used to send messages via `Session.SendToTarget()`                  |
+| `Session`                | Use its static `SendToTarget()` methods to send messages                         |
 | `MessageCracker`         | Base class that dispatches `FromApp` callbacks to typed `OnMessage` overloads    |
 
 ### 2.4 Acceptor vs. Initiator
@@ -191,11 +188,6 @@ BeginString=FIX.4.4
 StartTime=00:00:01
 EndTime=23:59:59
 
-# Heartbeat interval in seconds, and acceptable range
-HeartBtInt=30
-MinHeartBtInt=30
-MaxHeartBtInt=60
-
 # Timestamps at microsecond precision
 TimestampPrecision=Microseconds
 
@@ -229,19 +221,19 @@ SocketAcceptPort=5001
 
 Multiple sessions can share the same `SocketAcceptPort`; QuickFIX/n differentiates them by the `(SenderCompID, TargetCompID)` pair in the Logon message. In multi-port configurations, `SocketAcceptPort` must be declared per-session rather than in `[DEFAULT]`.
 
-To extend support for an additional FIX version later, add a new `[SESSION]` block with the appropriate `BeginString` and `DataDictionary`; no existing configuration or code changes are required.
+To extend support for an additional FIX version later, add its message-definition package and a new `[SESSION]` block with the appropriate `BeginString` and `DataDictionary`; application handlers may also need version-specific overloads.
 
 ### 3.3 Core Parameters
 
-- **ConnectionType** — `acceptor` or `initiator`. OEE-MAL always uses `acceptor`.
-- **BeginString** — the FIX version string. OEE-MAL supports `FIX.4.4` only; other versions are out of scope for now.
+- **ConnectionType** — `acceptor` or `initiator`. OEE's MAL always uses `acceptor`.
+- **BeginString** — the FIX version string. OEE's MAL supports `FIX.4.4` only; other versions are out of scope for now.
 - **DataDictionary** — path to the XML data dictionary for the session's FIX version; used to validate all incoming messages at runtime.
 - **SenderCompID / TargetCompID** — form the session identity. On the acceptor side, `SenderCompID` is the exchange's identifier and `TargetCompID` is the participant's identifier.
 - **SocketAcceptPort** — TCP port for the acceptor.
-- **HeartBtInt** — heartbeat interval in seconds. The acceptor should adopt the value proposed by the initiator's Logon unless it falls outside the configured `MinHeartBtInt` / `MaxHeartBtInt` range, in which case the Logon is rejected.
-- **FileStorePath / FileLogPath** — root directories for the file-based message store and FIX traffic log; each session gets its own subdirectory/files.
+- **HeartBtInt** — heartbeat interval in seconds. This setting configures initiators; an acceptor uses the value supplied in the initiator's Logon.
+- **FileStorePath / FileLogPath** — root directories for the file-based message store and FIX traffic log; each session gets its own prefixed files.
 - **ResetOnLogon / ResetOnLogout / ResetOnDisconnect** — control whether sequence numbers reset to 1 on the corresponding event. Must be `N` in production to preserve sequence continuity across reconnections; may be `Y` in isolated test environments to avoid sequence desync between test runs.
-- **StartTime / EndTime** — daily session window in UTC (`HH:MM:SS`). The acceptor refuses connections outside this window; omitting them makes the session permanently active.
+- **StartTime / EndTime** — daily session window in UTC (`HH:MM:SS`) unless `TimeZone` is set. The acceptor rejects session traffic outside this window; use `NonStopSession=Y` instead of these settings for a continuously active session.
 - **UseDataDictionary** — must remain `Y` in production; disabling it bypasses all field-level validation.
 - **SocketNodelay** — enables `TCP_NODELAY` (disables Nagle's algorithm), trading increased packet count for lower latency.
 
@@ -256,8 +248,8 @@ To extend support for an additional FIX version later, add a new `[SESSION]` blo
 | `TargetCompID`          | Expected client identity                                           | N/A            |
 | `ConnectionType`        | `acceptor` or `initiator`                                          | N/A            |
 | `StartTime` / `EndTime` | Session active window; UTC unless `TimeZone` is set                | N/A            |
-| `HeartBtInt`            | Seconds between heartbeats                                         | N/A            |
-| `NonStopSession`        | `Y` = never reset sequence numbers or disconnect                   | `N`            |
+| `HeartBtInt`            | Initiator heartbeat interval; acceptors use the value from Logon   | N/A            |
+| `NonStopSession`        | `Y` = continuous session with no scheduled boundary                | `N`            |
 | `ResetOnLogon`          | `Y` = reset sequence number to 1 on Logon                          | `N`            |
 | `ResetOnLogout`         | `Y` = reset sequence number to 1 after a clean Logout              | `N`            |
 | `ResetOnDisconnect`     | `Y` = reset sequence number to 1 after an abnormal disconnect      | `N`            |
@@ -295,7 +287,7 @@ To extend support for an additional FIX version later, add a new `[SESSION]` blo
 | Setting                   | Description                                                                   | Default |
 | ------------------------- | ----------------------------------------------------------------------------- | ------- |
 | `SocketNodelay`           | `Y` = disable Nagle's algorithm for lower latency; must be set in `[DEFAULT]` | `Y`     |
-| `SocketBufferSize`        | TCP send buffer, in bytes                                                     | `8192`  |
+| `SocketSendBufferSize`    | TCP send buffer, in bytes                                                     | `8192`  |
 | `SocketReceiveBufferSize` | TCP receive buffer, in bytes                                                  | `8192`  |
 
 **Logging**
@@ -326,15 +318,15 @@ public interface IApplication
 
 ### 4.1 OnCreate
 
-Fires when the session object is instantiated — during `acceptor.Start()`, on the thread that called `Start()`, before any listener or client thread exists. Use this to initialise per-session data structures keyed by `SessionID`.
+Fires when the session object is instantiated — during `ThreadedSocketAcceptor` construction for configured sessions, before `Start()` opens any listener. Use this to initialise per-session data structures keyed by `SessionID`.
 
 ### 4.2 OnLogon
 
-Fires when a logon handshake completes successfully; the signal that the session is active and application messages may be sent. Application code must gate all outbound sends on having received this callback for the target session.
+Fires when a logon handshake completes successfully; the signal that the session is active and application messages may be sent. Application code should gate outbound business messages on having received this callback for the target session.
 
 ### 4.3 OnLogout
 
-Fires when a session ends — locally initiated, by the counterparty, or due to network failure. Application code must not send messages after this callback fires until `OnLogon` fires again for that session.
+Fires when a session ends — locally initiated, by the counterparty, or due to network failure. Application code should stop sending business messages until `OnLogon` fires again for that session.
 
 ### 4.4 ToAdmin
 
@@ -361,7 +353,7 @@ public void FromAdmin(Message message, SessionID sessionID)
     if (message.Header.GetString(Tags.MsgType) != MsgType.LOGON)
         return;
 
-    var participantId = message.GetString(Tags.TargetCompID);
+    var participantId = sessionID.TargetCompID;
 
     if (!_participantRegistry.IsActive(participantId))
         throw new RejectLogon($"Participant {participantId} is unknown or inactive");
@@ -381,11 +373,11 @@ Fires when an inbound application-level message has been fully parsed and valida
 | Exception                | Protocol Effect                                            |
 | ------------------------ | ---------------------------------------------------------- |
 | `UnsupportedMessageType` | Sends BusinessMessageReject (MsgType=j)                    |
-| `FieldNotFoundException` | Sends session-level Reject (MsgType=3), tag missing        |
+| `FieldNotFoundException` | Sends BusinessMessageReject (MsgType=j)                    |
 | `IncorrectDataFormat`    | Sends session-level Reject (MsgType=3), bad format         |
 | `IncorrectTagValue`      | Sends session-level Reject (MsgType=3), value out of range |
 
-Application code must catch exceptions from downstream processing inside `FromApp` and translate them to one of the four exceptions above, rather than letting unhandled exceptions propagate through the callback. An unhandled exception crashes the session I/O thread and disconnects the client (see §12, Common Pitfalls).
+Application code should catch exceptions from downstream processing inside `FromApp` and translate protocol errors to one of the four exceptions above. Other failures should be logged and handled without escaping the callback; an unhandled exception terminates the client-handler thread and disconnects the client (see §12, Common Pitfalls).
 
 ### 4.8 Callback Ordering at Logon
 
@@ -473,18 +465,18 @@ var report = new QuickFix.FIX44.ExecutionReport(
     new AvgPx(0m)
 );
 
-// Direct property assignment on the strongly typed message clas
+// Direct property assignment on the strongly typed message class
 report.ClOrdID = new ClOrdID("CLI-ORD-00001");
 report.TransactTime = new TransactTime(DateTime.UtcNow);
 
-// Or the generated .Set() method on the strongly typed message clas
+// Or the generated .Set() method on the strongly typed message class
 report.Set(new LastQty(0m));
 
 // On the general message class — using generic SetField() method
 report.SetField(new LastPx(0m));
 ```
 
-Standard header and trailer fields are populated automatically by QuickFIX/n itself; application code must not set these manually.
+QuickFIX/n populates engine-managed header and trailer fields such as `BeginString`, `BodyLength`, `MsgSeqNum`, `SendingTime`, and `CheckSum`; application code should not set those fields manually.
 
 ### 5.4 Reading Fields
 
@@ -568,7 +560,7 @@ report.AddGroup(parties);
 
 `QuickFix.MessageCracker` is a base class implementing a visitor-style dispatch mechanism: it uses the `MsgType` field of an incoming message to route it to the correct typed `OnMessage(T, SessionID)` overload via reflection, eliminating manual switch statements on `MsgType`.
 
-The pattern: inherit from `MessageCracker`, call `Crack(msg, sessionID)` inside `FromApp`, and implement overloaded `OnMessage` handlers for each message type you wish to process. If `Crack` encounters a `MsgType` with no matching overload, it throws `UnsupportedMessageType`, which QuickFIX/n automatically converts to a BusinessMessageReject (MsgType=j). This makes `MessageCracker` the recommended approach for receiving application messages.
+The pattern: inherit from `MessageCracker`, call `Crack(msg, sessionID)` inside `FromApp`, and implement overloaded `OnMessage` handlers for each message type requiring processing. If `Crack` encounters a `MsgType` with no matching overload, it throws `UnsupportedMessageType`, which QuickFIX/n automatically converts to a BusinessMessageReject (MsgType=j). This makes `MessageCracker` the recommended approach for receiving application messages.
 
 ```csharp
 public class FixApplication : MessageCracker, IApplication
@@ -603,19 +595,13 @@ public class FixApplication : MessageCracker, IApplication
 
 ### 7.1 Sending via Session.SendToTarget
 
-Messages are sent through the static `Session` class, which provides thread-safe access to any active session:
+Messages are sent through the static `Session.SendToTarget` methods, which provide thread-safe access to registered sessions:
 
 ```csharp
 Session.SendToTarget(message, sessionID);
 ```
 
-This call is non-blocking. QuickFIX/n enqueues the message, assigns the outbound sequence number, serialises it to FIX wire format, persists it to the message store, and transmits it on the session I/O thread. If the session is not currently logged on, `SessionNotFound` is thrown.
-
-An alternative overload accepts component identifier strings directly:
-
-```csharp
-Session.SendToTarget(message, senderCompID, targetCompID);
-```
+The call executes synchronously on the calling thread. QuickFIX/n assigns the outbound sequence number, invokes `ToApp`, serialises and persists the message, and writes it through the session's responder. It returns `true` when the responder accepts the send. It returns `false` when `DoNotSend` suppresses the message, no responder is attached, or the responder rejects the send. `SessionNotFound` is thrown only when the supplied `SessionID` is not registered.
 
 ### 7.2 Resolving a SessionID
 
@@ -637,19 +623,19 @@ public void OnLogout(SessionID sessionID)
 
 ### 7.3 Heartbeat and TestRequest
 
-QuickFIX/n manages heartbeats autonomously. Every `HeartBtInt` seconds of receive silence, the session layer sends a TestRequest; if the counterparty does not respond with a matching Heartbeat within `HeartBtInt` plus tolerance, the session layer initiates logout. Application code does not need to handle heartbeats — `FromAdmin` fires when Heartbeat/TestRequest messages arrive, but the session layer handles the protocol response itself.
+QuickFIX/n manages heartbeats autonomously. It sends a Heartbeat after an interval with no outbound traffic and a TestRequest after an interval with no inbound traffic. If the counterparty remains silent past the engine's timeout, the connection is closed; sending a Logout first is optional through `SendLogoutBeforeDisconnectFromTimeout`. Application code does not need to handle heartbeat responses — `FromAdmin` fires for incoming Heartbeat and TestRequest messages, but the session layer handles the protocol response.
 
 ### 7.4 Sequence Number Management
 
 Each session maintains two independent counters: `NextSenderMsgSeqNum` (next outbound message) and `NextTargetMsgSeqNum` (next expected inbound message). On each received message, the session layer compares its `MsgSeqNum` against `NextTargetMsgSeqNum`:
 
-| Received MsgSeqNum                | Session layer action                                         |
-| --------------------------------- | ------------------------------------------------------------ |
-| Equals `NextTargetMsgSeqNum`      | Message accepted; counter advances by one                    |
-| Higher than `NextTargetMsgSeqNum` | Gap detected; ResendRequest sent for the missing range       |
-| Lower than `NextTargetMsgSeqNum`  | Uncoordinated reset detected; Logout sent, connection closed |
+| Received MsgSeqNum                | Session layer action                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| Equals `NextTargetMsgSeqNum`      | Message accepted; counter advances by one                                           |
+| Higher than `NextTargetMsgSeqNum` | Gap detected; ResendRequest sent for the missing range                              |
+| Lower than `NextTargetMsgSeqNum`  | If `PossDupFlag=N`, Logout is sent; possible duplicates are validated and discarded |
 
-`FileStoreFactory` persists both counters to disk. On reconnection with `ResetOnLogon=N`, the initiator's Logon `MsgSeqNum` is compared against the stored `NextTargetMsgSeqNum` to detect gaps accumulated while disconnected, and QuickFIX/n replays missing messages from the file store automatically.
+`FileStoreFactory` persists both counters to disk. On reconnection with `ResetOnLogon=N`, the incoming Logon `MsgSeqNum` is compared with the stored `NextTargetMsgSeqNum`; a high value triggers a ResendRequest. QuickFIX/n replays stored outbound application messages when the counterparty sends its own ResendRequest.
 
 ### 7.5 Sequence Reset
 
@@ -683,8 +669,6 @@ These two fields must always be consistent; OEE's order management layer is resp
 | Expiry                | `EXPIRED` (C)      | `EXPIRED` (C)                       |
 | Status query response | `ORDER_STATUS` (I) | Current order status                |
 
-For the full set of canonical scenarios (stateless/stateful rejection, acknowledgment, partial/full fill, cancel and cancel-replace confirmation) and their field-level rules, see the ExecutionReport Domain Guide (`003-execution-report-domain-guide.md`).
-
 ### 8.2 Building and Sending an ExecutionReport: Acknowledgment
 
 ```csharp
@@ -714,7 +698,8 @@ public void SendAck(SessionID sessionID, QuickFix.FIX44.NewOrderSingle order, st
 
 ```csharp
 public void SendFill(SessionID sessionID, string clOrdID, string orderID, string symbol,
-    char side, decimal fillQty, decimal fillPx, decimal leavesQty, decimal cumQty)
+    char side, decimal fillQty, decimal fillPx, decimal leavesQty, decimal cumQty,
+    decimal avgPx)
 {
     var report = new QuickFix.FIX44.ExecutionReport(
         new OrderID(orderID),
@@ -725,7 +710,7 @@ public void SendFill(SessionID sessionID, string clOrdID, string orderID, string
         new Side(side),
         new LeavesQty(leavesQty),
         new CumQty(cumQty),
-        new AvgPx(fillPx)
+        new AvgPx(avgPx)
     );
 
     report.ClOrdID = new ClOrdID(clOrdID);
@@ -737,24 +722,24 @@ public void SendFill(SessionID sessionID, string clOrdID, string orderID, string
 }
 ```
 
-> **Deprecated-value pitfall:** `PARTIAL_FILL` (1) and `FILL` (2) are deprecated `ExecType` values in FIX 4.4. All fill execution reports must use `TRADE` (F) with the appropriate `OrdStatus`, as shown above. An order with `LeavesQty > 0` and `ExecType=TRADE` must carry `OrdStatus=PARTIALLY_FILLED`; an order with `LeavesQty=0` must carry `OrdStatus=FILLED`. Inconsistent pairs will be rejected by counterparty validation.
+> **Deprecated-value pitfall:** `PARTIAL_FILL` (1) and `FILL` (2) are deprecated `ExecType` values in FIX 4.4. Fill execution reports use `TRADE` (F) with the appropriate `OrdStatus`, as shown above. An order with `LeavesQty > 0` and `ExecType=TRADE` carries `OrdStatus=PARTIALLY_FILLED`; an order with `LeavesQty=0` carries `OrdStatus=FILLED`. Inconsistent pairs may be rejected by counterparty validation.
 
 ### 8.4 Sending an OrderCancelReject
 
-When a cancel or amend request cannot be fulfilled, OEE must respond with `OrderCancelReject` rather than `ExecutionReport`. The `CxlRejResponseTo` field distinguishes whether the reject is in response to an `OrderCancelRequest` (`'1'`) or an `OrderCancelReplaceRequest` (`'2'`):
+When a cancel or amend request cannot be fulfilled, OEE responds with `OrderCancelReject` rather than `ExecutionReport`. `OrdStatus` reports the order's current status, while `CxlRejResponseTo` distinguishes whether the reject is in response to an `OrderCancelRequest` (`'1'`) or an `OrderCancelReplaceRequest` (`'2'`):
 
 ```csharp
 public void SendCancelReject(SessionID sessionID, string clOrdID, string origClOrdID,
-    string orderID, string reason)
+    string orderID, char ordStatus, char responseTo, string reason)
 {
     var reject = new QuickFix.FIX44.OrderCancelReject(
         new OrderID(orderID),
         new ClOrdID(clOrdID),
-        new OrdStatus(OrdStatus.REJECTED),
-        new CxlRejResponseTo(CxlRejResponseTo.ORDER_CANCEL_REQUEST)
+        new OrigClOrdID(origClOrdID),
+        new OrdStatus(ordStatus),
+        new CxlRejResponseTo(responseTo)
     );
 
-    reject.OrigClOrdID = new OrigClOrdID(origClOrdID);
     reject.Text = new Text(reason);
     reject.TransactTime = new TransactTime(DateTime.UtcNow);
 
@@ -775,7 +760,7 @@ OEE accepts four inbound business message types from clients. Each requires a di
 | `NewOrderSingle`            | **Stateless:** required fields present, instrument valid and tradeable, `OrdType`/`TimeInForce` supported, `Price`/`OrderQty` positive. **Stateful:** no duplicate `ClOrdID`, participant credit/position limits not breached, market open for trading.            | `ExecutionReport` with `ExecType=REJECTED` and `OrdStatus=REJECTED`      |
 | `OrderCancelRequest`        | **Stateless:** required fields present, `OrigClOrdID` provided. **Stateful:** order exists and belongs to this participant, order is in a cancellable state (not fully filled, not already cancelled).                                                             | `OrderCancelReject` with `CxlRejResponseTo=ORDER_CANCEL_REQUEST`         |
 | `OrderCancelReplaceRequest` | **Stateless:** required fields present, immutable fields `Symbol`/`Side` unchanged from original. **Stateful:** order exists and belongs to this participant, order is in an amendable state, new `OrderQty >= CumQty`, amended price/quantity within risk limits. | `OrderCancelReject` with `CxlRejResponseTo=ORDER_CANCEL_REPLACE_REQUEST` |
-| `OrderStatusRequest`        | **Stateless:** required fields present (`ClOrdID`, `Symbol`, `Side`). **Stateful:** order exists and belongs to this participant.                                                                                                                                  | `BusinessMessageReject` with `BusinessRejectReason=UNKNOWN_ORDER`        |
+| `OrderStatusRequest`        | **Stateless:** required fields present (`ClOrdID`, `Symbol`, `Side`). **Stateful:** order exists and belongs to this participant.                                                                                                                                  | `BusinessMessageReject` with `BusinessRejectReason=UNKNOWN_ID`           |
 
 ### 9.2 Data Dictionary Validation
 
@@ -783,19 +768,21 @@ When `UseDataDictionary=Y`, QuickFIX/n validates every incoming message against 
 
 ### 9.3 Sending BusinessMessageReject Explicitly
 
-When application logic determines a message is structurally valid but semantically unacceptable — for example, a duplicate `ClOrdID` — OEE must send an explicit `BusinessMessageReject` rather than throwing from `FromApp`:
+Use `BusinessMessageReject` when application logic cannot process a structurally valid message and FIX defines no more specific response. For example, an unknown order referenced by `OrderStatusRequest` can be rejected with `BusinessRejectReason=UNKNOWN_ID`:
 
 ```csharp
-public void OnMessage(QuickFix.FIX44.NewOrderSingle order, SessionID sessionID)
+public void OnMessage(QuickFix.FIX44.OrderStatusRequest request, SessionID sessionID)
 {
-    if (_orderRegistry.IsDuplicate(order.ClOrdID.Value))
+    if (!_orderRegistry.Contains(request.ClOrdID.Value))
     {
         var reject = new QuickFix.FIX44.BusinessMessageReject(
-            new RefSeqNum(order.Header.GetInt(Tags.MsgSeqNum)),
-            new RefMsgType(order.Header.GetString(Tags.MsgType)),
-            new BusinessRejectReason(BusinessRejectReason.DUPLICATE_IDENTIFIER),
-            new Text($"Duplicate ClOrdID: {order.ClOrdID.Value}")
+            new RefMsgType(request.Header.GetString(Tags.MsgType)),
+            new BusinessRejectReason(BusinessRejectReason.UNKNOWN_ID)
         );
+
+        reject.RefSeqNum = new RefSeqNum(request.Header.GetULong(Tags.MsgSeqNum));
+        reject.BusinessRejectRefID = new BusinessRejectRefID(request.ClOrdID.Value);
+        reject.Text = new Text($"Unknown ClOrdID: {request.ClOrdID.Value}");
         Session.SendToTarget(reject, sessionID);
         return;
     }
@@ -811,23 +798,23 @@ See §8.4 above for a worked example. `CxlRejResponseTo` must correctly identify
 
 A data dictionary is an XML file declaring all valid message types, field tags, field types, and required/optional field designations for a given FIX version. QuickFIX/n uses it at runtime to validate incoming messages: admin messages are validated before `FromAdmin` fires; application messages before `FromApp` fires. Outbound messages are not subject to dictionary validation.
 
-`FIX44.xml` is not bundled in the `QuickFIXn.FIX44` NuGet package — it must be sourced from the QuickFIX/n source repository (`spec/FIX44.xml`), committed to the project, declared as a build content file with `CopyToOutputDirectory=PreserveNewest`, and referenced by path in the `DataDictionary` setting. A missing or inaccessible dictionary causes QuickFIX/n to throw at startup.
+`FIX44.xml` is included in the `QuickFIXn.FIX44` NuGet package under `DataDictionary/`, but NuGet does not copy it to the application's output directory automatically. OEE keeps a copy in the project, declares it as build content with `CopyToOutputDirectory=PreserveNewest`, and references it through the `DataDictionary` setting. A missing or inaccessible dictionary causes QuickFIX/n to throw at startup.
 
-Custom fields must use tag numbers in the user-defined range **5000–9999** to avoid conflicts with standardised FIX tags, and must be declared in a modified copy of the standard dictionary — otherwise QuickFIX/n rejects any incoming message that contains them. The `ValidateUserDefinedFields` setting controls whether custom tags in this range are validated against the dictionary; setting it to `Y` enforces validation and is the correct production setting.
+Custom fields must use tag numbers in the user-defined range **5000–9999** to avoid conflicts with standardised FIX tags. They must also be declared in a modified copy of the standard dictionary — otherwise QuickFIX/n rejects any incoming message that contains them. The `ValidateUserDefinedFields` setting controls whether custom tags in this range are validated against the dictionary; setting it to `Y` enforces validation and is the correct production setting.
 
 ---
 
 ## 10. THREADING MODEL
 
-QuickFIX/n's `ThreadedSocketAcceptor` does **not** use the .NET thread pool — it creates one dedicated `System.Threading.Thread` per client connection. Each thread spends most of its life blocked on `socket.Read()`, consuming zero CPU while waiting. Because there is no CPU affinity, the OS scheduler moves threads between cores freely — 50 clients on a 4-core machine is completely fine.
+QuickFIX/n's `ThreadedSocketAcceptor` creates a reactor for each listening endpoint and a dedicated `ClientHandlerThread` for each accepted client connection. An idle handler spends most of its time blocked on socket reads, but capacity should still be tested against the expected number of sessions and workload.
 
-`OnCreate` fires during `acceptor.Start()`, when `Session` objects are constructed, on the thread that called `Start()` — before any listener or client thread exists. The six other callbacks are invoked on the `ClientHandlerThread` for that session; callbacks for different sessions therefore execute concurrently on different threads.
+`OnCreate` fires while configured `Session` objects are created during acceptor construction, before `Start()` opens listeners. Inbound callbacks run on the connection's client-handler thread. Outbound callbacks such as `ToApp` run synchronously on the thread that calls `Session.SendToTarget`, and disconnect paths can invoke `OnLogout` from other threads. Callbacks must therefore be treated as concurrent.
 
 Three rules follow from this model:
 
-- **Protect shared state.** All callbacks except `OnCreate` run on `ClientHandlerThread` threads, and multiple sessions execute concurrently. Any mutable state shared across sessions must be accessed through a thread-safe mechanism — a concurrent collection, atomic operations, immutable data, or explicit synchronisation.
-- **Never block a callback thread.** A blocked `ClientHandlerThread` cannot read the next incoming message or respond to a TestRequest, causing the counterparty to time out and disconnect. All latency-sensitive work — database calls, order processing, downstream I/O — must be offloaded immediately to a channel consumer task.
-- **Call `Session.SendToTarget` from a consumer task.** Even though `SendToTarget` is thread-safe, calling it inside callbacks is inadvisable. Instead, enqueue the outbound message and let the consumer call `SendToTarget` off the session thread.
+- **Protect shared state.** Multiple sessions and outbound callers can execute callbacks concurrently. Access mutable shared state through a concurrent collection, atomic operations, immutable data, or explicit synchronisation.
+- **Keep inbound callbacks short.** A blocked `ClientHandlerThread` cannot read the next incoming message or respond to a TestRequest, which can cause the counterparty to time out and disconnect. Offload database calls, order processing, and downstream I/O to a worker such as a channel consumer.
+- **Account for synchronous sends.** `Session.SendToTarget` is thread-safe but performs callback, persistence, serialisation, and responder work on the calling thread. Calling it from a consumer task keeps that work off the inbound session thread.
 
 The recommended MAL pattern: receive messages in `FromApp`, enqueue them to a bounded `System.Threading.Channels.Channel`, and consume them on a dedicated task started at service initialisation. This isolates the session thread from all order-processing latency and provides natural backpressure.
 
@@ -837,11 +824,11 @@ The recommended MAL pattern: receive messages in `FromApp`, enqueue them to a bo
 
 ### 11.1 Message Store
 
-The message store records **all outbound messages** and **both sequence counters**. Inbound messages are not stored — each side is responsible only for replaying its own outbound messages. If OEE needs a client to resend messages it missed, it sends a ResendRequest and the client replays from its own store; OEE's store exists so it can honour the same obligation in the other direction. Both counters are persisted, since both are needed for gap detection on reconnection.
+With `PersistMessages=Y`, the message store records **all outbound messages** and **both sequence counters**. Inbound messages are not stored — each side is responsible only for replaying its own outbound messages. If OEE detects a gap in the messages it received from a client, it sends that client a ResendRequest, and the client replays from its own store. OEE's store exists to honour the same obligation in the other direction — replaying to a client that detects a gap in what OEE sent. Both counters are persisted, since both are needed for gap detection on reconnection.
 
-`FileStoreFactory` writes each outbound message to a per-session file set: a body file with serialised FIX message strings, a header index file mapping sequence numbers to byte offsets in the body file, and a state file recording the current sender/target sequence numbers. On startup, QuickFIX/n reads the state file to restore sequence context; on a ResendRequest, it seeks into the body file via the header index to retransmit the referenced messages.
+`FileStoreFactory` writes each session to a file set: a body file containing serialised FIX messages, a header index mapping sequence numbers to byte offsets, a sequence-number file, and a session-state file. On startup, QuickFIX/n restores sequence context from these files; on a ResendRequest, it uses the index to retrieve messages for replay.
 
-`MemoryStoreFactory` holds messages and sequence numbers in memory only — both are lost on process termination. This is the correct choice for all test environments: it eliminates file system side effects and prevents sequence state leaking between test runs.
+`MemoryStoreFactory` holds messages and sequence numbers in memory only — both are lost on process termination. It is appropriate for tests that do not exercise persistence or restart recovery; persistence and replay tests should use an isolated temporary file store.
 
 Custom persistence backends are supported by implementing `IMessageStore` and `IMessageStoreFactory` — the extension point for integrating an external durable store when file-based persistence doesn't meet operational requirements.
 
@@ -849,26 +836,26 @@ Custom persistence backends are supported by implementing `IMessageStore` and `I
 
 `ILogFactory` produces `ILog` instances that record raw FIX wire-format traffic. Each entry is timestamped and contains the complete tag-value string of the sent or received message; this is distinct from application-level structured logging. Three built-in implementations:
 
-- `FileLogFactory` — writes one log file per session per day, with incoming and outgoing messages in separate files; the primary diagnostic tool for FIX-level troubleshooting.
+- `FileLogFactory` — writes a `messages.current.log` file containing both incoming and outgoing messages and a separate `event.current.log` file for each session; it does not perform daily rotation.
 - `ScreenLogFactory` — writes to standard output; appropriate for development environments.
-- `NullLogFactory` — discards all FIX traffic output; correct for integration tests where FIX-level logging isn't needed.
+- `NullLogFactory` — discards FIX traffic output; useful for tests where FIX-level logging is not needed.
 
-QuickFIX/n's `ILog` does not integrate with `Microsoft.Extensions.Logging`. Application-level structured logging uses the standard .NET logging abstractions independently.
+QuickFIX/n 1.14 also provides `ThreadedSocketAcceptor` and `SocketInitiator` constructors that accept `Microsoft.Extensions.Logging.ILoggerFactory`. The legacy `QuickFix.Logger.ILogFactory` API remains supported; OEE currently uses its built-in factories.
 
 ---
 
 ## 12. COMMON PITFALLS
 
 - **`FieldNotFoundException` on optional fields.** Direct access on an absent optional field throws. Guard optional fields with `IsSetX()` or `IsSetField()` before access.
-- **Using deprecated `ExecType` values.** `PARTIAL_FILL` (1) and `FILL` (2) are deprecated in FIX 4.4. All fill execution reports must use `TRADE` (F) with the appropriate `OrdStatus`.
-- **Mismatched `ExecType` and `OrdStatus`.** An order with `LeavesQty > 0` and `ExecType=TRADE` must carry `OrdStatus=PARTIALLY_FILLED`; `LeavesQty=0` must carry `OrdStatus=FILLED`. Inconsistent pairs will be rejected by counterparty validation.
+- **Using deprecated `ExecType` values.** `PARTIAL_FILL` (1) and `FILL` (2) are deprecated in FIX 4.4. Fill execution reports use `TRADE` (F) with the appropriate `OrdStatus`.
+- **Mismatched `ExecType` and `OrdStatus`.** An order with `LeavesQty > 0` and `ExecType=TRADE` carries `OrdStatus=PARTIALLY_FILLED`; `LeavesQty=0` carries `OrdStatus=FILLED`. Counterparties may reject inconsistent pairs.
 - **Unhandled exceptions escaping `FromApp`.** QuickFIX/n catches only four protocol exceptions from `FromApp` (`UnsupportedMessageType`, `FieldNotFoundException`, `IncorrectDataFormat`, `IncorrectTagValue`) and converts them to the appropriate FIX reject. Any other exception propagates, terminates the `ClientHandlerThread`, and disconnects the client. Wrap downstream calls in try/catch and either translate the error to one of the four exceptions or send an explicit reject via `SendToTarget` and return normally.
-- **Blocking the session I/O thread.** Any blocking call inside a callback prevents QuickFIX/n from reading the next incoming message or responding to a TestRequest, causing the counterparty to time out and disconnect. Offload all blocking or latency-sensitive work to a channel consumer task.
-- **Sending before `OnLogon`.** Calling `Session.SendToTarget` before `OnLogon` fires throws `SessionNotFound`. Gate all sends on verified logon state.
+- **Blocking the client-handler thread.** A blocking call inside an inbound callback prevents QuickFIX/n from reading the next message or responding to a TestRequest, which can cause the counterparty to time out and disconnect. Offload blocking or latency-sensitive work to a channel consumer task.
+- **Sending before `OnLogon`.** If the session exists but no responder is attached, `Session.SendToTarget` returns `false`; it throws `SessionNotFound` only for an unregistered `SessionID`. Gate business sends on verified logon state and check the return value.
 - **1-based repeating group index.** The index passed to `GetGroup` is 1-based; passing `0` throws an exception. The loop range for a group with N instances is 1 to N inclusive.
 - **Missing data dictionary file.** If the `DataDictionary` path doesn't exist at runtime, QuickFIX/n throws at startup. `FIX44.xml` must be present in the build output directory.
-- **Sequence number desync after store loss.** Deleting or corrupting the file store between sessions causes the counterparty's expected sequence numbers to diverge. Production recovery requires coordinating a sequence reset with the counterparty. Test environments must use `MemoryStoreFactory` to avoid this problem entirely.
-- **Manual `MsgSeqNum` assignment.** Application code must not set `MsgSeqNum`, `PossDupFlag`, or `PossResend` manually except during an explicit gap fill procedure. Incorrect manipulation corrupts session state and forces a full reset.
+- **Sequence number desync after store loss.** Deleting or corrupting the file store between sessions causes the counterparty's expected sequence numbers to diverge. Production recovery requires coordinating a sequence reset with the counterparty. Use `MemoryStoreFactory` or an isolated temporary file store to prevent state leaking between unrelated test runs.
+- **Manual sequence-field assignment.** Application code should not set `MsgSeqNum`, `PossDupFlag`, or `PossResend`; QuickFIX/n manages these session fields, including during replay and gap fill. Incorrect manipulation corrupts session state and may force a coordinated reset.
 - **Clock skew near session boundaries.** When `StartTime`/`EndTime` are configured, clock drift between hosts can cause connection refusals near boundaries. All gateway hosts must synchronise clocks via NTP.
 
 ---
@@ -876,4 +863,5 @@ QuickFIX/n's `ILog` does not integrate with `Microsoft.Extensions.Logging`. Appl
 ## REFERENCES
 
 - FIX 4.4 Standard Specification — authoritative field/message reference
-- QuickFIX/n official documentation and source repository: github.com/connamara/quickfixn
+- [QuickFIX/n official documentation](https://quickfixengine.org/n/documentation/)
+- [QuickFIX/n source repository](https://github.com/connamara/quickfixn)
